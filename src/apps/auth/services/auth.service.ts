@@ -1,11 +1,10 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
-import { SignupUserDto } from '../dtos/signup.dto';
 import { LoginEmailDto } from '../dtos/login-email.dto';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from 'src/lib/prisma/prisma.service';
-import * as bcrypt from 'bcrypt';
 import { User } from '@prisma/client';
+import axios from 'axios';
 
 @Injectable()
 export class AuthService {
@@ -15,62 +14,127 @@ export class AuthService {
     private prismaService: PrismaService,
   ) {}
 
-  async signup({ email, password, username }: SignupUserDto) {
-    const isEmailAlreadyExists = await this.prismaService.user.findFirst({
-      where: {
-        email,
+  private async createRequestToken() {
+    const options = {
+      method: 'GET',
+      url: `${this.configService.get<string>(
+        'TMDB_API_URL',
+      )}/authentication/token/new`,
+      headers: {
+        accept: 'application/json',
+        Authorization: `Bearer ${this.configService.get<string>(
+          'TMDB_API_KEY',
+        )}`,
       },
-    });
-    if (isEmailAlreadyExists) {
-      throw new UnauthorizedException('Email is already exists');
+    };
+
+    try {
+      const requestToken = await axios.request(options);
+      return requestToken.data;
+    } catch (error) {
+      throw new UnauthorizedException('Invalid username or password');
     }
-
-    const hashedPassword = await bcrypt.hash(
-      password,
-      Number(this.configService.get<number>('SALT')),
-    );
-
-    const createdUser = await this.prismaService.user.create({
-      data: {
-        name: username,
-        email,
-        password: hashedPassword,
-      },
-    });
-
-    delete createdUser.password;
-    return createdUser;
   }
 
-  async login({ email, password }: LoginEmailDto) {
-    const user = await this.prismaService.user.findFirst({
-      where: {
-        email,
-      },
-    });
+  private async createSessionId(loginEmailDto: LoginEmailDto) {
+    const requestToken = await this.createRequestToken();
 
-    const isMatchPassword = await bcrypt.compare(password, user.password);
-    if (!isMatchPassword) {
-      throw new UnauthorizedException('Incorrect Email or password');
+    await this.validateRequestTokenWithLogin(
+      loginEmailDto,
+      requestToken.request_token,
+    );
+
+    const options = {
+      method: 'POST',
+      url: `${this.configService.get<string>(
+        'TMDB_API_URL',
+      )}/authentication/session/new`,
+      headers: {
+        accept: 'application/json',
+        'content-type': 'application/json',
+        Authorization: `Bearer ${this.configService.get<string>(
+          'TMDB_API_KEY',
+        )}`,
+      },
+      data: { request_token: requestToken.request_token },
+    };
+
+    try {
+      const sessionData = await axios.request(options);
+      return sessionData.data.session_id;
+    } catch (error) {
+      throw new UnauthorizedException('Invalid username or password');
+    }
+  }
+
+  private async validateRequestTokenWithLogin(
+    { username, password }: LoginEmailDto,
+    requestToken: string,
+  ) {
+    const options = {
+      method: 'POST',
+      url: `${this.configService.get<string>(
+        'TMDB_API_URL',
+      )}/authentication/token/validate_with_login`,
+      headers: {
+        accept: 'application/json',
+        Authorization: `Bearer ${this.configService.get<string>(
+          'TMDB_API_KEY',
+        )}`,
+      },
+      data: {
+        username: username,
+        password: password,
+        request_token: requestToken,
+      },
+    };
+
+    try {
+      const requestTokenResponse = await axios.request(options);
+
+      if (requestTokenResponse.data.request_token != requestToken) {
+        throw new UnauthorizedException('Invalid username or password');
+      }
+    } catch (error) {
+      throw new UnauthorizedException('Invalid username or password');
+    }
+  }
+
+  async login(loginEmailDto: LoginEmailDto) {
+    const { username } = loginEmailDto;
+    const sessionId = await this.createSessionId(loginEmailDto);
+
+    if (!sessionId) {
+      throw new UnauthorizedException('Invalid username or password');
     }
 
-    delete user.password;
-
-    const token = this.generateToken(user);
+    let user: User;
+    user = await this.prismaService.user.findFirst({
+      where: {
+        username,
+      },
+    });
+    if (!user) {
+      user = await this.prismaService.user.create({
+        data: {
+          username,
+        },
+      });
+    }
 
     return {
       ...user,
-      token,
+      token: this.generateToken(user),
     };
   }
 
   private generateToken(user: User) {
     return this.jwtService.sign(
-      { _id: String(user.id), email: user.email },
+      { _id: String(user.id), username: user.username },
       {
         secret: this.configService.get<string>('USER_JWT_SECRET'),
         expiresIn:
-          Number(this.configService.get<number>('USER_JWT_EXPIRY')) || 1200,
+          Number(this.configService.get<number>('USER_JWT_EXPIRY')) || 3600,
       },
     );
   }
