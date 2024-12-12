@@ -1,12 +1,13 @@
 import { Module } from '@nestjs/common';
-import { UserMongooseModule } from 'src/lib/modules/mongoose';
 import { AuthService } from './services/auth.service';
 import { AuthController } from './controllers/auth.controller';
 import { JwtService } from '@nestjs/jwt';
+import { PrismaService } from 'src/lib/prisma/prisma.service';
+import { ConfigService } from '@nestjs/config';
 
 @Module({
-  imports: [UserMongooseModule],
-  providers: [AuthService, JwtService],
+  imports: [],
+  providers: [AuthService, JwtService, PrismaService, ConfigService],
   controllers: [AuthController],
   exports: [],
 })

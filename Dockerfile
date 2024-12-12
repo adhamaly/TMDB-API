@@ -1,32 +1,49 @@
-# Stage 1: Build the NestJS application
-FROM node:18 AS build
+##############
+# Build Stage
+##############
+
+FROM node:18-bullseye-slim As build
+
+# RUN apt-get update -y && apt-get install -y openssl
 
 WORKDIR /usr/src/app
 
-# Copy only package.json and package-lock.json
-COPY package*.json ./
-RUN npm install
+# Copy application dependency manifests to the container image
+COPY --chown=node:node ./package*.json .
 
-# Copy the application files
-COPY . .
+# Copy Prisma Migrations
+COPY --chown=node:node prisma ./prisma/
 
-# Build the NestJS application
-RUN npm run build
+# Install node modules (required for "npm run build" to succeed)
+RUN npm ci
 
-# Stage 2: Create the production image
-FROM node:18-alpine
+# Copy the rest of the repository files and folders
+COPY --chown=node:node . .
 
+# Generate prisma files >> Build project >> Reinstall node_modules but without dev modules
+RUN npm run prisma:generate && npm run build && npm ci --omit=dev
+
+# Use the node user from the image (instead of the root user)
+USER node
+
+###################
+# Production Stage
+###################
+FROM node:18-bullseye-slim As production
+
+# Create app directory
 WORKDIR /usr/src/app
 
-# Copy package.json and install only production dependencies
-COPY package*.json ./
-RUN npm install --production
+# Copy the bundled code from the build stage to the production image
+COPY --chown=node:node --from=build /usr/src/app/node_modules ./node_modules
+# Prisma folder is needed to apply migrations and seeds
+COPY --chown=node:node --from=build /usr/src/app/prisma ./prisma
+# Package.json is needed for the startup command "npm run docker:entrypoint"
+COPY --chown=node:node --from=build /usr/src/app/package*.json .
+COPY --chown=node:node --from=build /usr/src/app/dist ./dist
+COPY --chown=node:node --from=build /usr/src/app/.env .
 
-# Copy build output from Stage 1
-COPY --from=build /usr/src/app/dist ./dist
-
-# Expose the application port
+# Bind port 3000
 EXPOSE 3000
 
-# Command to run the application
-CMD ["node", "dist/main.js"]
+CMD [ "npm", "run", "docker:entrypoint" ]

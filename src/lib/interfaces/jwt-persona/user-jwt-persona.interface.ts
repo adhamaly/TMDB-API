@@ -1,5 +1,5 @@
 export interface UserJwtPersona {
-  _id: string;
+  id: number;
   email: string;
   iat: number;
   exp: number;
