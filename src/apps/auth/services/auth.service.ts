@@ -100,6 +100,28 @@ export class AuthService {
     }
   }
 
+  private async getUserAccountDetails(sessionId: string) {
+    const options = {
+      method: 'GET',
+      url: `${this.configService.get<string>(
+        'TMDB_API_URL',
+      )}/account/account_id?session_id=${sessionId}`,
+      headers: {
+        accept: 'application/json',
+        Authorization: `Bearer ${this.configService.get<string>(
+          'TMDB_API_KEY',
+        )}`,
+      },
+    };
+
+    try {
+      const accountData = await axios.request(options);
+      return accountData.data;
+    } catch (error) {
+      throw new UnauthorizedException('Invalid username or password');
+    }
+  }
+
   async login(loginEmailDto: LoginEmailDto) {
     const { username } = loginEmailDto;
     const sessionId = await this.createSessionId(loginEmailDto);
@@ -114,10 +136,14 @@ export class AuthService {
         username,
       },
     });
+
     if (!user) {
+      const userAccountDetails = await this.getUserAccountDetails(sessionId);
+
       user = await this.prismaService.user.create({
         data: {
           username,
+          tmdbUserId: userAccountDetails.id,
         },
       });
     }

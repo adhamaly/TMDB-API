@@ -14,6 +14,46 @@ datasource db {
 }
 
 model User {
-  id       Int    @id @default(autoincrement())
-  username String
+  id         Int          @id @default(autoincrement())
+  username   String
+  tmdbUserId Int?
+  watchList  Watchlist[]
+  MovieGenre MovieGenre[]
+}
+
+model Movie {
+  id          Int          @id @default(autoincrement())
+  tmdbMovieId Int
+  title       String
+  overview    String?
+  popularity  Float?
+  releaseDate String?
+  adult       Boolean      @default(false)
+  voteAverage Float?       @default(0)
+  voteCount   Int?         @default(0)
+  watchlist   Watchlist[]
+  movieGenre  MovieGenre[]
+}
+
+model Watchlist {
+  id              Int   @id @default(autoincrement())
+  tmdbWatchListId Int
+  userId          Int
+  movieId         Int
+  movie           Movie @relation(fields: [movieId], references: [id])
+  user            User  @relation(fields: [userId], references: [id])
+}
+
+model Genre {
+  id          Int    @id @default(autoincrement())
+  tmdbGenreId Int
+  name        String
+}
+
+model MovieGenre {
+  id      Int   @id @default(autoincrement())
+  movieId Int
+  genreId Int
+  movie   Movie @relation(fields: [movieId], references: [id])
+  genre   User  @relation(fields: [genreId], references: [id])
 }
