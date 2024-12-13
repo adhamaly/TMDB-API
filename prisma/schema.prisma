@@ -5,7 +5,8 @@
 // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["fullTextSearchPostgres"]
 }
 
 datasource db {
@@ -14,30 +15,29 @@ datasource db {
 }
 
 model User {
-  id         Int          @id @default(autoincrement())
+  id         Int         @id @default(autoincrement())
   username   String
-  tmdbUserId Int?
+  tmdbUserId Int?        @unique
   watchList  Watchlist[]
-  MovieGenre MovieGenre[]
 }
 
 model Movie {
-  id          Int          @id @default(autoincrement())
-  tmdbMovieId Int
+  id          Int         @id @default(autoincrement())
+  tmdbMovieId Int         @unique
   title       String
   overview    String?
   popularity  Float?
   releaseDate String?
-  adult       Boolean      @default(false)
-  voteAverage Float?       @default(0)
-  voteCount   Int?         @default(0)
+  adult       Boolean     @default(false)
+  voteAverage Float?      @default(0)
+  voteCount   Int?        @default(0)
   watchlist   Watchlist[]
-  movieGenre  MovieGenre[]
+  movieGenre  Int[]
 }
 
 model Watchlist {
   id              Int   @id @default(autoincrement())
-  tmdbWatchListId Int
+  tmdbWatchListId Int   @unique
   userId          Int
   movieId         Int
   movie           Movie @relation(fields: [movieId], references: [id])
@@ -46,14 +46,6 @@ model Watchlist {
 
 model Genre {
   id          Int    @id @default(autoincrement())
-  tmdbGenreId Int
+  tmdbGenreId Int    @unique
   name        String
-}
-
-model MovieGenre {
-  id      Int   @id @default(autoincrement())
-  movieId Int
-  genreId Int
-  movie   Movie @relation(fields: [movieId], references: [id])
-  genre   User  @relation(fields: [genreId], references: [id])
 }
