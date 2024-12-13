@@ -9,14 +9,6 @@ import { LoginEmailDto } from '../dtos/login-email.dto';
 export class AuthController {
   constructor(private authService: AuthService) {}
 
-  @Post('signup')
-  async signup(@Body() signupUserDto: SignupUserDto) {
-    return {
-      success: true,
-      data: await this.authService.signup(signupUserDto),
-    };
-  }
-
   @Post('login')
   async login(@Body() loginEmailDto: LoginEmailDto) {
     return {
