@@ -156,7 +156,7 @@ export class AuthService {
 
   private generateToken(user: User) {
     return this.jwtService.sign(
-      { _id: String(user.id), username: user.username },
+      { id: String(user.id), username: user.username },
       {
         secret: this.configService.get<string>('USER_JWT_SECRET'),
         expiresIn:

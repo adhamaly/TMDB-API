@@ -18,7 +18,7 @@ model User {
   id         Int         @id @default(autoincrement())
   username   String
   tmdbUserId Int?        @unique
-  watchList  Watchlist[]
+  watchList  WatchList[]
 }
 
 model Movie {
@@ -31,17 +31,18 @@ model Movie {
   adult       Boolean     @default(false)
   voteAverage Float?      @default(0)
   voteCount   Int?        @default(0)
-  watchlist   Watchlist[]
+  watchList   WatchList[]
   movieGenre  Int[]
 }
 
-model Watchlist {
-  id              Int   @id @default(autoincrement())
-  tmdbWatchListId Int   @unique
-  userId          Int
-  movieId         Int
-  movie           Movie @relation(fields: [movieId], references: [id])
-  user            User  @relation(fields: [userId], references: [id])
+model WatchList {
+  id      Int   @id @default(autoincrement())
+  userId  Int
+  movieId Int
+  movie   Movie @relation(fields: [movieId], references: [id])
+  user    User  @relation(fields: [userId], references: [id])
+
+  @@unique([userId, movieId])
 }
 
 model Genre {

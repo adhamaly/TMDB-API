@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Query } from '@nestjs/common';
+import { Controller, Get, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { MoviesService } from '../services/movies.service';
 import { GetMoviesListDto } from '../dtos/get-movies-list.dto';
@@ -16,7 +16,7 @@ export class MoviesController {
     };
   }
 
-  @Post('sync-genres')
+  @Get('sync-genres')
   async syncGenres() {
     await this.moviesService.syncGenres();
     return {

@@ -10,6 +10,7 @@ async function bootstrap() {
     .setTitle('TMDB APIs')
     .setDescription('API documentation for the TMDB APIs')
     .setVersion('1.0')
+    .addBearerAuth()
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
