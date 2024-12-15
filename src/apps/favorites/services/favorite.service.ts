@@ -6,18 +6,18 @@ import {
 import { PrismaService } from 'src/lib/prisma/prisma.service';
 import axios from 'axios';
 import { ConfigService } from '@nestjs/config';
-import { GetWatchListListDto } from '../dtos/get-watchlist-list.dto';
-import { AddMovieToWatchList } from '../dtos/add-movie-watchlist.dto';
-import { RemoveMovieToWatchListDto } from '../dtos/remove-movie-watchlist.dto';
+import { GetFavoriteListDto } from '../dtos/get-favorites-list.dto';
+import { AddMovieToFavorite } from '../dtos/add-movie-favorite.dto';
+import { RemoveMovieToFavoriteDto } from '../dtos/remove-movie-favorite.dto';
 
 @Injectable()
-export class WatchListService {
+export class FavoriteService {
   constructor(
     private configService: ConfigService,
     private prismaService: PrismaService,
   ) {}
 
-  async syncWatchListFromTMDB(userId: number) {
+  async syncFavoriteFromTMDB(userId: number) {
     const user = await this.prismaService.user.findUnique({
       where: { id: Number(userId) },
     });
@@ -25,7 +25,7 @@ export class WatchListService {
       method: 'GET',
       url: `${this.configService.get<string>('TMDB_API_URL')}/account/${
         user.tmdbUserId
-      }/watchlist/movies`,
+      }/favorite/movies`,
       headers: {
         accept: 'application/json',
         Authorization: `Bearer ${this.configService.get<string>(
@@ -38,7 +38,7 @@ export class WatchListService {
       const movies = response.data.results;
 
       await this.prismaService.$transaction(async (prisma) => {
-        await prisma.watchList.deleteMany({
+        await prisma.favorite.deleteMany({
           where: {
             userId: Number(userId),
           },
@@ -52,7 +52,7 @@ export class WatchListService {
               voteAverage: movie.vote_average,
               voteCount: movie.vote_count,
               ...(movie.popularity && { popularity: movie.popularity }),
-              watchList: {
+              favorites: {
                 create: {
                   userId: Number(userId),
                 },
@@ -68,7 +68,7 @@ export class WatchListService {
               movieGenre: movie.genre_ids,
               ...(movie.popularity && { popularity: movie.popularity }),
               ...(movie.release_date && { releaseDate: movie.release_date }),
-              watchList: {
+              favorites: {
                 create: {
                   userId: Number(userId),
                 },
@@ -84,11 +84,11 @@ export class WatchListService {
     }
   }
 
-  async getWatchList(userId: number, query: GetWatchListListDto) {
+  async getFavorite(userId: number, query: GetFavoriteListDto) {
     const { page = 1, limit = 10 } = query;
     const skip = (page - 1) * limit;
 
-    const watchList = await this.prismaService.watchList.findMany({
+    const favorites = await this.prismaService.favorite.findMany({
       where: {
         userId: Number(userId),
       },
@@ -111,31 +111,31 @@ export class WatchListService {
       skip: skip,
       take: Number(limit),
     });
-    const watchListCount = await this.prismaService.watchList.count({
+    const favoriteCount = await this.prismaService.favorite.count({
       where: {
         userId: Number(userId),
       },
     });
 
     return {
-      watchList,
-      totalPages: Math.ceil(watchListCount / limit) || 0,
-      totalItems: watchListCount,
+      favorites,
+      totalPages: Math.ceil(favoriteCount / limit) || 0,
+      totalItems: favoriteCount,
       page: Number(page),
       limit: Number(limit),
     };
   }
 
-  private async migrateWatchListToTMDB(
+  private async migrateFavoriteToTMDB(
     tmdbUserId: number,
     tmdbMovieId: number,
-    washlist: boolean,
+    favorite: boolean,
   ) {
     const options = {
       method: 'POST',
       url: `${this.configService.get<string>(
         'TMDB_API_URL',
-      )}/account/${tmdbUserId}/watchlist`,
+      )}/account/${tmdbUserId}/favorite`,
       headers: {
         accept: 'application/json',
         Authorization: `Bearer ${this.configService.get<string>(
@@ -145,7 +145,7 @@ export class WatchListService {
       data: {
         media_type: 'movie',
         media_id: Number(tmdbMovieId),
-        watchlist: washlist,
+        favorite: favorite,
       },
     };
     try {
@@ -157,7 +157,7 @@ export class WatchListService {
     }
   }
 
-  async addToWatchList(userId: number, { movieId }: AddMovieToWatchList) {
+  async addToFavorite(userId: number, { movieId }: AddMovieToFavorite) {
     const movie = await this.prismaService.movie.findUnique({
       where: { id: Number(movieId) },
     });
@@ -166,38 +166,30 @@ export class WatchListService {
       throw new NotFoundException('Movie not found');
     }
 
-    const userMovieWatchList = await this.prismaService.watchList.findFirst({
-      where: { movieId: Number(movieId), userId: Number(userId) },
-      select: {
-        user: {
-          select: {
-            tmdbUserId: true,
-          },
-        },
-      },
+    if (
+      await this.prismaService.favorite.findFirst({
+        where: { movieId: Number(movieId), userId: Number(userId) },
+      })
+    ) {
+      throw new NotFoundException('Movie already added to Favorite');
+    }
+    const user = await this.prismaService.user.findUnique({
+      where: { id: Number(userId) },
     });
 
-    if (userMovieWatchList) {
-      throw new NotFoundException('Movie already added to WatchList');
-    }
-
-    await this.prismaService.watchList.create({
+    await this.prismaService.favorite.create({
       data: {
         movieId: Number(movieId),
         userId: Number(userId),
       },
     });
 
-    await this.migrateWatchListToTMDB(
-      userMovieWatchList.user.tmdbUserId,
-      movie.tmdbMovieId,
-      true,
-    );
+    await this.migrateFavoriteToTMDB(user.tmdbUserId, movie.tmdbMovieId, true);
   }
 
-  async removeFromWatchList(
+  async removeFromFavorite(
     userId: number,
-    { movieId }: RemoveMovieToWatchListDto,
+    { movieId }: RemoveMovieToFavoriteDto,
   ) {
     const movie = await this.prismaService.movie.findUnique({
       where: { id: Number(movieId) },
@@ -207,7 +199,7 @@ export class WatchListService {
       throw new NotFoundException('Movie not found');
     }
 
-    const userMovieWatchList = await this.prismaService.watchList.findFirst({
+    const userMovieFavorite = await this.prismaService.favorite.findFirst({
       where: { movieId: Number(movieId), userId: Number(userId) },
       select: {
         user: {
@@ -218,18 +210,18 @@ export class WatchListService {
       },
     });
 
-    if (!userMovieWatchList) {
-      throw new NotFoundException('Movie was not added to WatchList');
+    if (!userMovieFavorite) {
+      throw new NotFoundException('Movie was not added to Favorite');
     }
 
-    await this.prismaService.watchList.delete({
+    await this.prismaService.favorite.delete({
       where: {
         userId_movieId: { movieId: Number(movieId), userId: Number(userId) },
       },
     });
 
-    await this.migrateWatchListToTMDB(
-      userMovieWatchList.user.tmdbUserId,
+    await this.migrateFavoriteToTMDB(
+      userMovieFavorite.user.tmdbUserId,
       movie.tmdbMovieId,
       false,
     );

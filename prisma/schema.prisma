@@ -19,6 +19,7 @@ model User {
   username   String
   tmdbUserId Int?        @unique
   watchList  WatchList[]
+  favorites  Favorite[]
 }
 
 model Movie {
@@ -33,6 +34,7 @@ model Movie {
   voteCount   Int?        @default(0)
   watchList   WatchList[]
   movieGenre  Int[]
+  favorites   Favorite[]
 }
 
 model WatchList {
@@ -49,4 +51,14 @@ model Genre {
   id          Int    @id @default(autoincrement())
   tmdbGenreId Int    @unique
   name        String
+}
+
+model Favorite {
+  id      Int   @id @default(autoincrement())
+  userId  Int
+  movieId Int
+  movie   Movie @relation(fields: [movieId], references: [id])
+  user    User  @relation(fields: [userId], references: [id])
+
+  @@unique([userId, movieId])
 }
