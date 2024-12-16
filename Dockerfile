@@ -2,7 +2,7 @@
 # Build Stage
 ##############
 
-FROM node:18-bullseye-slim As build
+FROM node:18-bullseye-slim AS build
 
 # RUN apt-get update -y && apt-get install -y openssl
 
@@ -29,7 +29,7 @@ USER node
 ###################
 # Production Stage
 ###################
-FROM node:18-bullseye-slim As production
+FROM node:18-bullseye-slim AS production
 
 # Create app directory
 WORKDIR /usr/src/app
@@ -44,6 +44,6 @@ COPY --chown=node:node --from=build /usr/src/app/dist ./dist
 COPY --chown=node:node --from=build /usr/src/app/.env .
 
 # Bind port 3000
-EXPOSE 3000
+EXPOSE 8080
 
 CMD [ "npm", "run", "docker:entrypoint" ]

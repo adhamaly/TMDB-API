@@ -9,13 +9,20 @@ import { GetMoviesListDto } from '../dtos/get-movies-list.dto';
 import { MovieIdParamDto } from '../dtos/movie-id-params.dto';
 import { CreateRateMovieDto } from '../dtos/rate-movie.dto';
 import { PrismaService } from '../../../lib/prisma/prisma.service';
+import { RedisService } from '@songkeys/nestjs-redis';
+import Redis from 'ioredis';
 
 @Injectable()
 export class MoviesService {
+  protected readonly redis: Redis;
+
   constructor(
     private configService: ConfigService,
     private prismaService: PrismaService,
-  ) {}
+    private readonly redisService: RedisService,
+  ) {
+    this.redis = this.redisService.getClient();
+  }
 
   async syncGenres() {
     const options = {
@@ -94,6 +101,15 @@ export class MoviesService {
     const { page = 1, limit = 10, search, genreId } = query;
     const skip = (page - 1) * limit;
 
+    const cacheKey = `movies_page_${page}_limit_${limit}`;
+
+    // Check if cached data exists
+    const cachedData = await this.redis.get(cacheKey);
+    if (cachedData) {
+      console.log('Returning cached data');
+      return JSON.parse(cachedData);
+    }
+
     const movies = await this.prismaService.movie.findMany({
       where: {
         ...(search && { title: { contains: search, mode: 'insensitive' } }),
@@ -104,13 +120,18 @@ export class MoviesService {
     });
     const moviesCount = await this.prismaService.movie.count({});
 
-    return {
+    const result = {
       movies,
       totalPages: Math.ceil(moviesCount / limit) || 0,
       totalItems: moviesCount,
       page: Number(page),
       limit: Number(limit),
     };
+
+    // Cache the result in Redis
+    await this.redis.set(cacheKey, JSON.stringify(result), 'EX', 3600); // Cache for 1 hour
+
+    return result;
   }
 
   async getMovie(userId: number, { movieId }: MovieIdParamDto) {

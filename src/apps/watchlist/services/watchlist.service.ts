@@ -3,7 +3,7 @@ import {
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
-import { PrismaService } from 'src/lib/prisma/prisma.service';
+import { PrismaService } from '../../../lib/prisma/prisma.service';
 import axios from 'axios';
 import { ConfigService } from '@nestjs/config';
 import { GetWatchListListDto } from '../dtos/get-watchlist-list.dto';
