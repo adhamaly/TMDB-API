@@ -20,6 +20,7 @@ model User {
   tmdbUserId Int?        @unique
   watchList  WatchList[]
   favorites  Favorite[]
+  ratings    Rating[]
 }
 
 model Movie {
@@ -35,6 +36,7 @@ model Movie {
   watchList   WatchList[]
   movieGenre  Int[]
   favorites   Favorite[]
+  Rating      Rating[]
 }
 
 model WatchList {
@@ -57,6 +59,17 @@ model Favorite {
   id      Int   @id @default(autoincrement())
   userId  Int
   movieId Int
+  movie   Movie @relation(fields: [movieId], references: [id])
+  user    User  @relation(fields: [userId], references: [id])
+
+  @@unique([userId, movieId])
+}
+
+model Rating {
+  id      Int   @id @default(autoincrement())
+  userId  Int
+  movieId Int
+  rating  Int
   movie   Movie @relation(fields: [movieId], references: [id])
   user    User  @relation(fields: [userId], references: [id])
 
