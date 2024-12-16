@@ -1,0 +1,77 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["fullTextSearchPostgres"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id         Int         @id @default(autoincrement())
+  username   String
+  tmdbUserId Int?        @unique
+  watchList  WatchList[]
+  favorites  Favorite[]
+  ratings    Rating[]
+}
+
+model Movie {
+  id          Int         @id @default(autoincrement())
+  tmdbMovieId Int         @unique
+  title       String
+  overview    String?
+  popularity  Float?
+  releaseDate String?
+  adult       Boolean     @default(false)
+  voteAverage Float?      @default(0)
+  voteCount   Int?        @default(0)
+  watchList   WatchList[]
+  movieGenre  Int[]
+  favorites   Favorite[]
+  Rating      Rating[]
+}
+
+model WatchList {
+  id      Int   @id @default(autoincrement())
+  userId  Int
+  movieId Int
+  movie   Movie @relation(fields: [movieId], references: [id])
+  user    User  @relation(fields: [userId], references: [id])
+
+  @@unique([userId, movieId])
+}
+
+model Genre {
+  id          Int    @id @default(autoincrement())
+  tmdbGenreId Int    @unique
+  name        String
+}
+
+model Favorite {
+  id      Int   @id @default(autoincrement())
+  userId  Int
+  movieId Int
+  movie   Movie @relation(fields: [movieId], references: [id])
+  user    User  @relation(fields: [userId], references: [id])
+
+  @@unique([userId, movieId])
+}
+
+model Rating {
+  id      Int   @id @default(autoincrement())
+  userId  Int
+  movieId Int
+  rating  Int
+  movie   Movie @relation(fields: [movieId], references: [id])
+  user    User  @relation(fields: [userId], references: [id])
+
+  @@unique([userId, movieId])
+}
