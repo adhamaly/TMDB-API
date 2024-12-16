@@ -7,7 +7,7 @@ services:
     container_name: tmdb-api
     restart: always
     ports:
-      - 3000:3000
+      - 8080:8080
     depends_on:
       - postgres
       - redis
